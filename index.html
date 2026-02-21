@@ -1,7 +1,128 @@
+<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <title>Turnero Comfamiliar</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
+  
+  <style>
+    :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
+    .container { display: flex; height: 100vh; }
+    .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; position: relative; }
+    .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); margin: 0; }
+    .nombre-usuario { font-size: 4rem; color: #2c3e50; font-weight: bold; }
+    .ventanilla-box { background: var(--accent); color: white; padding: 15px 60px; border-radius: 80px; font-size: 4rem; font-weight: bold; margin-top: 20px; }
+    .side-panel { flex: 1; background: var(--primary); color: white; padding: 30px; }
+    .espera-item { font-size: 1.8rem; margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; border-left: 8px solid var(--accent); }
+    .cast-btn { position: absolute; top: 20px; right: 20px; z-index: 1000; }
+    google-cast-launcher { width: 50px; height: 50px; cursor: pointer; background: white; border-radius: 50%; padding: 5px; }
+    #overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 9999; display: flex; justify-content: center; align-items: center; color: white; cursor: pointer; }
+  </style>
 </head>
 <body>
-Hola Mundo
+
+  <div id="overlay" onclick="iniciar()">
+    <div style="text-align: center;">
+      <h1>SISTEMA DE TURNOS CONECTADO</h1>
+      <p>Haga clic para iniciar audio y sincronización</p>
+    </div>
+  </div>
+
+  <div class="cast-btn"><google-cast-launcher></google-cast-launcher></div>
+
+  <div class="container">
+    <div class="main-panel">
+      <div style="font-size: 2rem; color: #7f8c8d;">ATENDIENDO A:</div>
+      <div id="num-turno" class="turno-actual">--</div>
+      <div id="nombre-persona" class="nombre-usuario">...</div>
+      <div id="ventanilla-display" class="ventanilla-box" style="display:none;">
+        VENTANILLA <span id="num-ventanilla">-</span>
+      </div>
+    </div>
+    <div class="side-panel">
+      <div style="font-size: 1.8rem; border-bottom: 2px solid white; margin-bottom: 20px;">SIGUIENTES</div>
+      <div id="lista-espera"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- CONFIGURACIÓN ---
+    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec"; // PEGA AQUÍ TU URL /exec
+    var APP_ID = "B01CDD80";
+    var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
+    
+    var llamadosGlobal = [];
+    var idsAnunciados = [];
+    var sedeActual = new URLSearchParams(window.location.search).get('sede') || "General";
+
+    // --- LÓGICA CHROMECAST ---
+    window.__onGCastApiAvailable = function(isAvailable) {
+      if (isAvailable) {
+        var context = cast.framework.CastContext.getInstance();
+        context.setOptions({ receiverApplicationId: APP_ID, autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED });
+        
+        context.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, function(event) {
+          if (event.sessionState === cast.framework.SessionState.SESSION_STARTED) {
+            context.getCurrentSession().sendMessage(NAMESPACE, { sede: sedeActual });
+          }
+        });
+      }
+    };
+
+    // --- LÓGICA DE DATOS ---
+    function iniciar() {
+      document.getElementById('overlay').style.display = 'none';
+      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      fetchData();
+      setInterval(fetchData, 5000);
+    }
+
+    function fetchData() {
+      fetch(API_URL + "?sede=" + encodeURIComponent(sedeActual))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          llamadosGlobal = data.listaLlamados;
+          actualizarUI();
+          renderizarEspera(data.proximos);
+          anunciarNuevos(data.listaLlamados);
+        })
+        .catch(function(err) { console.error("Error de red:", err); });
+    }
+
+    function actualizarUI() {
+      var t = llamadosGlobal[0];
+      if (!t) return;
+      document.getElementById('num-turno').innerText = t.id;
+      document.getElementById('nombre-persona').innerText = t.nombre;
+      document.getElementById('num-ventanilla').innerText = t.ventanilla;
+      document.getElementById('ventanilla-display').style.display = "block";
+    }
+
+    function renderizarEspera(espera) {
+      var html = "";
+      espera.forEach(function(item) {
+        html += '<div class="espera-item"><strong>' + item.id + '</strong> - ' + item.nombre + '</div>';
+      });
+      document.getElementById('lista-espera').innerHTML = html;
+    }
+
+    function anunciarNuevos(lista) {
+      lista.forEach(function(t) {
+        if (idsAnunciados.indexOf(t.id) === -1) {
+          hablar(t);
+          idsAnunciados.push(t.id);
+        }
+      });
+    }
+
+    function hablar(t) {
+      var txt = t.nombre + ". Turno " + t.id + ". Ventanilla " + t.ventanilla;
+      var msg = new SpeechSynthesisUtterance(txt);
+      msg.lang = 'es-ES';
+      window.speechSynthesis.speak(msg);
+    }
+  </script>
 </body>
 </html>
