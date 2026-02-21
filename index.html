@@ -75,10 +75,46 @@
     function iniciar() {
       document.getElementById('overlay').style.display = 'none';
       if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      fetchData();
-      setInterval(fetchData, 5000);
+      
+      ejecutarJSONP(); // Primera carga
+      setInterval(ejecutarJSONP, 5000); // Refresco cada 5 segundos
     }
-
+    
+    // Esta función "pide" el script a Google
+    function ejecutarJSONP() {
+      var script = document.createElement('script');
+      // Agregamos &callback=procesarRespuesta a la URL
+      script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarRespuesta";
+      
+      // Añadimos el script al cuerpo del documento y luego lo eliminamos para limpiar la RAM
+      document.body.appendChild(script);
+      document.body.removeChild(script);
+    }
+    
+    // Esta es la función que Google ejecutará al devolver el "script"
+    function procesarRespuesta(data) {
+      if (!data) return;
+      
+      llamadosGlobal = data.listaLlamados || [];
+      actualizarUI();
+      renderizarEspera(data.proximos || []);
+      
+      // Lógica de voz
+      for (var i = 0; i < llamadosGlobal.length; i++) {
+        var t = llamadosGlobal[i];
+        if (idsAnunciados.indexOf(t.id) === -1) {
+          hablar(t);
+          idsAnunciados.push(t.id);
+        }
+      }
+    
+      // Limpiar IDs antiguos de la memoria de anuncios
+      var idsActuales = llamadosGlobal.map(function(x) { return x.id; });
+      idsAnunciados = idsAnunciados.filter(function(id) {
+        return idsActuales.indexOf(id) !== -1;
+      });
+    }
+    
     function fetchData() {
       fetch(API_URL + "?sede=" + encodeURIComponent(sedeActual))
         .then(function(res) { return res.json(); })
