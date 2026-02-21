@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar - Full Local</title>
+  <title>Turnero Comfamiliar - Versión Estable</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   
   <script src="cast_framework.js"></script>
@@ -11,18 +11,24 @@
     :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
     body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
     
-    /* Botón de Cast: Empezamos oculto */
+    /* Botón de Cast: Estilo 'Deshabilitado' inicial */
     #btn-cast {
       position: absolute; top: 20px; right: 20px; z-index: 1001;
-      background: white; padding: 12px 25px; border-radius: 50px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; 
-      cursor: pointer; border: 2px solid #ddd; visibility: hidden;
+      background: #eee; color: #888; padding: 12px 25px; border-radius: 50px;
+      display: flex; align-items: center; cursor: not-allowed;
+      border: 2px solid #ccc; opacity: 0.5; transition: all 0.3s;
     }
-    .ready { visibility: visible !important; border-color: var(--primary) !important; }
-    #btn-cast img { width: 30px; margin-right: 10px; }
+    /* Clase que activamos por JS */
+    .cast-ready { 
+      background: white !important; color: #333 !important; 
+      cursor: pointer !important; opacity: 1 !important; 
+      border-color: var(--primary) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    #btn-cast img { width: 30px; margin-right: 10px; filter: grayscale(1); }
+    .cast-ready img { filter: grayscale(0) !important; }
 
-    /* Estilos Interfaz */
     #selector-sede { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+    select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 320px; }
     .btn-main { padding: 15px 50px; font-size: 1.3rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
   </style>
 </head>
@@ -30,21 +36,22 @@
 
   <div id="btn-cast" onclick="lanzarCast()">
     <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png">
-    <span>CONECTAR A TV</span>
+    <span id="cast-status">CARGANDO SDK...</span>
   </div>
 
   <div id="selector-sede">
     <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 250px; margin-bottom: 20px; filter: brightness(0) invert(1);">
     <h1>SISTEMA DE TURNOS</h1>
-    <select id="lista-sedes" style="padding:15px; font-size:1.5rem; border-radius:10px; margin-bottom:20px;">
+    <select id="lista-sedes">
       <option value="Galicia">Sede Galicia</option>
       <option value="Circunvalar">Sede Circunvalar</option>
+      <option value="Calle20">Sede Calle 20</option> <option value="Cuba">Sede Cuba</option>
     </select>
-    <button class="btn-main" onclick="confirmarSede()">INICIAR</button>
+    <button class="btn-main" onclick="confirmarSede()">INICIAR TURNERO</button>
   </div>
 
   <div id="app-container" style="display: flex; height: 100vh; visibility: hidden;">
-    </div>
+     </div>
 
   <script>
     var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
@@ -53,46 +60,57 @@
     var sedeActual = "";
     var castListo = false;
 
-    // --- EL MONITOR DE SEGURIDAD ---
-    // Como ya sabemos que cast_framework.js tira un error de "CustomElement",
-    // vamos a ignorar el error y verificar si el objeto 'cast' ya existe.
+    // --- MONITOR DE INICIALIZACIÓN ---
     var monitor = setInterval(function() {
       if (window.cast && window.cast.framework) {
-        console.log("[Turnero] SDK detectado. Inicializando...");
-        inicializarCast();
+        console.log("[Turnero] Framework detectado. Configurando...");
+        configurarCast();
         clearInterval(monitor);
       }
-    }, 1000);
+    }, 1500);
 
-    function inicializarCast() {
+    function configurarCast() {
       try {
         var context = cast.framework.CastContext.getInstance();
+        
+        // El punto crítico: setOptions DEBE ocurrir antes de cualquier clic
         context.setOptions({
           receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped'
+          autoJoinPolicy: 'origin_scoped',
+          resumeSavedSession: true
         });
-        
-        // Activamos el botón
-        document.getElementById('btn-cast').classList.add('ready');
+
+        // Solo ahora habilitamos el botón visualmente
+        var btn = document.getElementById('btn-cast');
+        btn.classList.add('cast-ready');
+        document.getElementById('cast-status').innerText = "CONECTAR A TV";
         castListo = true;
+        console.log("[Turnero] Configuración exitosa.");
       } catch (e) {
-        // Si el error es por el CustomElement, el contexto igual suele funcionar
-        console.warn("Aviso en inicialización:", e.message);
-        if (window.cast) {
-          document.getElementById('btn-cast').classList.add('ready');
-          castListo = true;
-        }
+        console.error("[Turnero] Error en setOptions:", e.message);
       }
     }
 
     function lanzarCast() {
-      if (!castListo) return;
-      cast.framework.CastContext.getInstance().requestSession().then(
+      if (!castListo) {
+        console.warn("[Turnero] El SDK no está configurado todavía.");
+        return;
+      }
+
+      var context = cast.framework.CastContext.getInstance();
+      
+      // Verificamos de nuevo antes de pedir la sesión
+      context.requestSession().then(
         function() {
-          var session = cast.framework.CastContext.getInstance().getCurrentSession();
-          if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
+          console.log("[Turnero] Sesión iniciada.");
+          var session = context.getCurrentSession();
+          if (session) {
+            session.sendMessage(NAMESPACE, { sede: sedeActual });
+          }
         },
-        function(err) { console.log("Error de conexión: " + err); }
+        function(err) {
+          console.error("[Turnero] Fallo al abrir selector:", err);
+        }
       );
     }
 
@@ -100,7 +118,7 @@
       sedeActual = document.getElementById('lista-sedes').value;
       document.getElementById('selector-sede').style.display = 'none';
       document.getElementById('app-container').style.visibility = 'visible';
-      // ... tu lógica de actualizarDatos() ...
+      // ... Resto de tu lógica de actualización de datos ...
     }
   </script>
 </body>
