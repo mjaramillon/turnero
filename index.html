@@ -52,43 +52,53 @@
     </div>
 
   <script>
-    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
-    var APP_ID = "B01CDD80";
-    var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
-    var sedeActual = "";
-    var castListo = false;
+  // 1. EL DESPERTADOR NATIVO
+  // Esto le dice a Chrome: "Esta página quiere usar pantallas externas"
+  // Sin descargar nada de Google, esto suele forzar la aparición de 'chrome.cast'
+  if (navigator.presentation && navigator.presentation.defaultRequest === null) {
+    navigator.presentation.defaultRequest = new PresentationRequest(['https://google.com/cast/#B01CDD80']);
+    console.log("[Turnero] Señal de hardware enviada al navegador...");
+  }
 
-    // --- EL MONITOR QUE NO SE RINDE ---
-    var monitor = setInterval(function() {
-      var motorLocal = (window.cast && window.cast.framework);
-      var apiBrowser = (window.chrome && window.chrome.cast);
-      
-      console.log("[Turnero] Motor=" + (motorLocal ? "OK" : "FALTA") + " | Browser=" + (apiBrowser ? "OK" : "FALTA"));
+  var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
+  var APP_ID = "B01CDD80";
+  var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
+  var sedeActual = "";
+  var castListo = false;
 
-      if (motorLocal && apiBrowser) {
-        inicializarCastSafe();
-        clearInterval(monitor);
-      }
-    }, 2000);
-
-    function inicializarCastSafe() {
-      try {
-        var context = cast.framework.CastContext.getInstance();
-        context.setOptions({
-          receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped'
-        });
-
-        var btn = document.getElementById('btn-cast');
-        btn.classList.add('cast-ready');
-        document.getElementById('cast-status').innerText = "CONECTAR A TV";
-        castListo = true;
-        console.log("[Turnero] Todo listo. Ya puedes conectar.");
-      } catch (e) {
-        console.warn("[Turnero] Reintentando: " + e.message);
-        setTimeout(inicializarCastSafe, 2000);
-      }
+  // 2. MONITOR DE ESTADO (Ajustado)
+  var monitor = setInterval(function() {
+    var motorLocal = (window.cast && window.cast.framework);
+    var apiBrowser = (window.chrome && window.chrome.cast);
+    
+    // Si sigue en FALTA, intentamos un "empujoncito" manual
+    if (motorLocal && !apiBrowser) {
+        console.log("[Turnero] Motor local OK. Esperando que el navegador inyecte chrome.cast...");
     }
+
+    if (motorLocal && apiBrowser) {
+      inicializarCastSafe();
+      clearInterval(monitor);
+    }
+  }, 2000);
+
+  function inicializarCastSafe() {
+    try {
+      var context = cast.framework.CastContext.getInstance();
+      context.setOptions({
+        receiverApplicationId: APP_ID,
+        autoJoinPolicy: 'origin_scoped'
+      });
+      
+      document.getElementById('btn-cast').classList.add('cast-ready');
+      document.getElementById('cast-status').innerText = "CONECTAR A TV";
+      castListo = true;
+      console.log("[Turnero] ¡DRIVER DETECTADO Y CONFIGURADO!");
+    } catch (e) {
+      console.warn("[Turnero] Error de sincronización: " + e.message);
+    }
+  }
+  
 
     function lanzarCast() {
       if (!castListo) return;
