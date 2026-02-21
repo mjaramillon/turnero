@@ -2,94 +2,146 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Diagnóstico Turnero - Comfamiliar</title>
+  <title>Turnero Comfamiliar - Plan B</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   
   <script src="cast_framework.js"></script>
 
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #2c3e50; color: white; text-align: center; }
-    #log { background: #000; color: #0f0; padding: 15px; text-align: left; font-family: monospace; height: 300px; overflow-y: auto; border-radius: 10px; margin-top: 20px; }
-    .btn { padding: 15px 30px; font-size: 1.2rem; background: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; display: none; }
-    .success { color: #0f0; font-weight: bold; }
-    .error { color: #ff4d4d; }
+    :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
+    
+    /* Botón de Cast: Siempre presente para evitar errores de carga */
+    #btn-cast {
+      position: absolute; top: 20px; right: 20px; z-index: 1001;
+      background: white; padding: 12px 25px; border-radius: 50px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; 
+      cursor: pointer; border: 2px solid #ddd;
+    }
+    #btn-cast img { width: 30px; margin-right: 10px; }
+
+    /* Estilos de la Interfaz */
+    #selector-sede { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+    select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 320px; }
+    .btn-main { padding: 15px 50px; font-size: 1.3rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+    .container { display: flex; height: 100vh; visibility: hidden; }
+    .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; }
+    .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); line-height: 1; }
+    .side-panel { flex: 1; background: var(--primary); color: white; padding: 30px; }
   </style>
 </head>
 <body>
 
-  <h2>DIAGNÓSTICO DE CONEXIÓN CHROMECAST</h2>
-  <p id="status">Estado: Verificando componentes...</p>
-  
-  <button id="btn-transmitir" class="btn" onclick="conectar()">CONECTAR AHORA</button>
+  <div id="btn-cast" onclick="lanzarCast()">
+    <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png">
+    <span id="cast-status">CONECTAR A TV</span>
+  </div>
 
-  <div id="log">Iniciando traza de errores...</div>
+  <div id="selector-sede">
+    <h1>CONFIGURACIÓN DE SEDE</h1>
+    <select id="lista-sedes">
+      <option value="Galicia">Sede Galicia</option>
+      <option value="Circunvalar">Sede Circunvalar</option>
+      <option value="Calle20">Sede Calle 20</option>
+      <option value="Cuba">Sede Cuba</option>
+    </select>
+    <button class="btn-main" onclick="confirmarSede()">INICIAR</button>
+  </div>
+
+  <div id="app-container" class="container">
+    <div class="main-panel">
+      <div id="num-turno" class="turno-actual">--</div>
+      <div id="nombre-persona" style="font-size: 4rem; font-weight: bold;">...</div>
+      <div id="ventanilla-display" style="background:var(--accent); color:white; padding:10px 50px; border-radius:50px; font-size:3.5rem; font-weight:bold; display:none; margin-top:20px;">
+        VENTANILLA <span id="num-ventanilla">-</span>
+      </div>
+    </div>
+    <div class="side-panel">
+      <h2 style="border-bottom: 2px solid white; padding-bottom: 10px;">EN ESPERA</h2>
+      <div id="lista-espera"></div>
+    </div>
+  </div>
 
   <script>
-    function escribirLog(msg, color) {
-      var log = document.getElementById('log');
-      var span = document.createElement('div');
-      if(color) span.className = color;
-      span.innerHTML = "> " + msg;
-      log.appendChild(span);
-      log.scrollTop = log.scrollHeight;
-    }
+    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
+    var APP_ID = "B01CDD80";
+    var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
+    var sedeActual = "";
+    var castListo = false;
 
-    // 1. EL MÉTODO OFICIAL
-    window.__onGCastApiAvailable = function(isAvailable) {
-      if (isAvailable) {
-        escribirLog("Google ha respondido: ¡El SDK está disponible!", "success");
-        inicializar();
-      } else {
-        escribirLog("Google ha respondido: SDK NO disponible en este navegador.", "error");
+    // Monitorización de la librería local
+    var checkCast = setInterval(function() {
+      if (window.cast && window.cast.framework) {
+        inicializarCast();
+        clearInterval(checkCast);
       }
-    };
+    }, 1000);
 
-    // 2. EL MÉTODO DE FUERZA BRUTA (Por si el anterior no se dispara)
-    var intentos = 0;
-    var monitor = setInterval(function() {
-      intentos++;
-      escribirLog("Intento " + intentos + ": Verificando objetos en memoria...");
-      
-      var hasCast = !!window.cast;
-      var hasFramework = hasCast && !!window.cast.framework;
-      var hasChromeCast = !!window.chrome && !!window.chrome.cast;
-
-      escribirLog("Cast: " + hasCast + " | Framework: " + hasFramework + " | ChromeCast API: " + hasChromeCast);
-
-      if (hasFramework && hasChromeCast) {
-        escribirLog("¡Todos los componentes encontrados manualmente!", "success");
-        clearInterval(monitor);
-        inicializar();
-      }
-
-      if (intentos > 15) {
-        escribirLog("ERROR CRÍTICO: El SDK no carga. Posible bloqueo de extensión o navegador no compatible.", "error");
-        clearInterval(monitor);
-      }
-    }, 2000);
-
-    function inicializar() {
+    function inicializarCast() {
       try {
         var context = cast.framework.CastContext.getInstance();
         context.setOptions({
-          receiverApplicationId: 'B01CDD80',
+          receiverApplicationId: APP_ID,
           autoJoinPolicy: 'origin_scoped'
         });
-        
-        document.getElementById('status').innerText = "¡SISTEMA LISTO!";
-        document.getElementById('btn-transmitir').style.display = "inline-block";
-        escribirLog("Esperando que hagas clic en CONECTAR.", "success");
+        castListo = true;
+        console.log("SDK Local inicializado correctamente.");
       } catch(e) {
-        escribirLog("Fallo al configurar el contexto: " + e.message, "error");
+        console.error("Error inicializando SDK: ", e.message);
       }
     }
 
-    function conectar() {
-      escribirLog("Abriendo selector de dispositivos...");
-      cast.framework.CastContext.getInstance().requestSession().then(
-        function() { escribirLog("Conexión establecida con éxito.", "success"); },
-        function(err) { escribirLog("Error de conexión: " + err, "error"); }
+    function lanzarCast() {
+      if (!castListo) {
+        alert("La librería aún se está cargando. Por favor espera 2 segundos.");
+        return;
+      }
+      var context = cast.framework.CastContext.getInstance();
+      context.requestSession().then(
+        function() {
+          var session = context.getCurrentSession();
+          if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
+        },
+        function(err) { console.error("Sesión fallida: " + err); }
       );
     }
+
+    function confirmarSede() {
+      sedeActual = document.getElementById('lista-sedes').value;
+      document.getElementById('selector-sede').style.display = 'none';
+      document.getElementById('app-container').style.visibility = 'visible';
+      
+      // Desbloqueo de audio nativo
+      if (window.speechSynthesis) {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      }
+      
+      setInterval(actualizarDatos, 5000);
+      actualizarDatos();
+    }
+
+    function actualizarDatos() {
+      var script = document.createElement('script');
+      script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarJSONP";
+      document.body.appendChild(script);
+      document.body.removeChild(script);
+    }
+
+    window.procesarJSONP = function(data) {
+      if (!data) return;
+      var t = (data.listaLlamados || [])[0];
+      if (t) {
+        document.getElementById('num-turno').innerText = t.id;
+        document.getElementById('nombre-persona').innerText = t.nombre;
+        document.getElementById('num-ventanilla').innerText = t.ventanilla;
+        document.getElementById('ventanilla-display').style.display = "block";
+      }
+      var html = "";
+      (data.proximos || []).forEach(function(item) {
+        html += '<div class="espera-item"><strong>' + item.id + '</strong> - ' + item.nombre + '</div>';
+      });
+      document.getElementById('lista-espera').innerHTML = html;
+    };
   </script>
 </body>
 </html>
