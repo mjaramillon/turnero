@@ -1,59 +1,78 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi DashCast Personal</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-        #cast-button { margin-bottom: 20px; }
-        input { padding: 10px; width: 300px; }
-        button { padding: 10px 20px; cursor: pointer; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f4f9; padding: 50px; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block; }
+        #cast-button { display: inline-block; width: 40px; height: 40px; margin-bottom: 20px; cursor: pointer; }
+        input { padding: 12px; width: 320px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 12px 25px; background-color: #4285f4; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-left: 10px; }
+        button:hover { background-color: #357ae8; }
+        .status { margin-top: 15px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <h1>Enviar URL a Chromecast</h1>
-    
-    <google-cast-launcher id="cast-button"></google-cast-launcher>
-    
-    <br>
-    
-    <input type="url" id="urlInput" placeholder="https://ejemplo.com" value="https://www.wikipedia.org">
-    <button id="sendBtn">Enviar a Pantalla</button>
+    <div class="container">
+        <h1>DashCast Clone</h1>
+        <p>Haz clic en el icono para conectar:</p>
+        
+        <google-cast-launcher id="cast-button"></google-cast-launcher>
+        
+        <br>
+        <input type="url" id="urlInput" placeholder="https://www.wikipedia.org" value="https://www.wikipedia.org">
+        <button id="sendBtn">Transmitir</button>
+        
+        <div id="status" class="status">Esperando al SDK de Google Cast...</div>
+    </div>
 
     <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 
     <script>
-        // Configuración inicial con tu Application ID
+        // Nombre del canal de comunicación (Debe coincidir con el del Receiver)
+        const NAMESPACE = 'urn:x-cast:com.pierreguillou.dashcast'; 
+
         window.__onGCastApiAvailable = function(isAvailable) {
             if (isAvailable) {
                 initializeCastApi();
+            } else {
+                document.getElementById('status').innerText = "Cast no disponible en este navegador.";
             }
         };
 
         function initializeCastApi() {
-            cast.framework.CastContext.getInstance().setOptions({
-                receiverApplicationId: 'B01CDD80', // Tu ID proporcionado
+            const context = cast.framework.CastContext.getInstance();
+            context.setOptions({
+                receiverApplicationId: 'B01CDD80',
                 autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
             });
-        };
 
-        // Función para enviar el contenido
+            context.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, (event) => {
+                document.getElementById('status').innerText = "Estado: " + event.sessionState;
+            });
+            
+            document.getElementById('status').innerText = "SDK cargado. Haz clic en el icono de arriba.";
+        }
+
         document.getElementById('sendBtn').addEventListener('click', () => {
-            const urlToSend = document.getElementById('urlInput').value;
             const castSession = cast.framework.CastContext.getInstance().getCurrentSession();
+            const urlToDisplay = document.getElementById('urlInput').value;
 
             if (castSession) {
-                const mediaInfo = new chrome.cast.media.MediaInfo(urlToSend, 'text/html');
-                const request = new chrome.cast.media.LoadRequest(mediaInfo);
-                
-                castSession.loadMedia(request).then(
-                    () => { console.log('URL enviada con éxito'); },
-                    (errorCode) => { console.error('Error al enviar:', errorCode); }
+                // Enviamos un mensaje personalizado con la URL, no un archivo multimedia
+                const message = {
+                    url: urlToDisplay,
+                    force: true
+                };
+
+                castSession.sendMessage(NAMESPACE, message).then(
+                    () => { alert('URL enviada!'); },
+                    (error) => { console.error('Error al enviar mensaje', error); }
                 );
             } else {
-                alert('Primero conéctate al Chromecast usando el botón de arriba.');
+                alert('¡Primero debes conectar el Chromecast con el botón de Cast!');
             }
         });
     </script>
