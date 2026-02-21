@@ -2,98 +2,85 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar v7</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <title>Turnero Casa - Comfamiliar</title>
   
-  <script src="https://www.gstatic.com/cast/sdk/libs/sender/1.0/cast_framework.js"></script>
-  
-  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js"></script>
+  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
 
   <style>
-    /* ... (Mantenemos tus estilos del botón y la interfaz) ... */
+    :root { --primary: #004a99; --accent: #e67e22; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; text-align: center; }
+    
+    /* El botón de Cast oficial de Google */
     #btn-cast {
-      position: absolute; top: 20px; right: 20px; z-index: 1001;
-      background: #eee; color: #888; padding: 12px 25px; border-radius: 50px;
-      display: flex; align-items: center; cursor: not-allowed;
-      border: 2px solid #ccc; opacity: 0.6; transition: all 0.3s;
+      margin: 20px;
+      padding: 15px 30px;
+      background: white;
+      border: 2px solid var(--primary);
+      border-radius: 50px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      font-weight: bold;
     }
-    .cast-activo {
-      background: white !important; color: #333 !important;
-      cursor: pointer !important; opacity: 1 !important;
-      border-color: #004a99 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
+    /* Estilo para cuando no hay dispositivos o no ha cargado */
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <div id="btn-cast" onclick="intentarConexion()">
-    <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png" style="width:30px; margin-right:10px;">
-    <span id="cast-txt">CARGANDO SDK...</span>
+  <h1>SISTEMA DE TURNOS (MODO CASA)</h1>
+
+  <div id="btn-cast" class="hidden" onclick="conectarTV()">
+    <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png" style="width:24px; margin-right:10px;">
+    CONECTAR AL TELEVISOR
   </div>
 
+  <div id="status" style="color: #666; font-size: 0.9rem;">Buscando SDK de Google...</div>
+
   <script>
-    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
-    var APP_ID = "B01CDD80";
-    var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
-    var sedeActual = "";
-    var castListo = false;
+    var APP_ID = 'B01CDD80';
+    var NAMESPACE = 'urn:x-cast:com.comfamiliar.turnero';
+    var sedeActual = "Galicia"; // Para probar en casa
 
-    // LÓGICA DE DETECCIÓN AGRESIVA
-    var intentos = 0;
-    var checkCast = setInterval(function() {
-      intentos++;
-      // Verificamos si ya existe el framework Y el motor de bajo nivel
-      if (window.cast && window.cast.framework && window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
-        logConsole("¡Ecosistema completo detectado!");
-        inicializarCast();
-        clearInterval(checkCast);
+    // 1. EL DISPARADOR AUTOMÁTICO DE GOOGLE
+    window.__onGCastApiAvailable = function(isAvailable) {
+      if (isAvailable) {
+        document.getElementById('status').innerText = "SDK cargado. Buscando dispositivos en tu Wi-Fi...";
+        inicializarFramework();
       } else {
-        logConsole("Intento " + intentos + ": Esperando motor chrome.cast...");
-        
-        // Si después de 5 intentos no carga, intentamos "patear" el motor manualmente
-        if (intentos === 5) {
-          logConsole("Forzando inicialización de bajo nivel...");
-          window.__onGCastApiAvailable = function(isAvailable) {
-            if (isAvailable) inicializarCast();
-          };
-        }
+        document.getElementById('status').innerText = "SDK cargado, pero no hay Chromecasts en esta red.";
       }
-    }, 1500);
+    };
 
-    function inicializarCast() {
-      if (castListo) return;
-      try {
-        var context = cast.framework.CastContext.getInstance();
-        context.setOptions({
-          receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped' 
-        });
-        
-        document.getElementById('btn-cast').classList.add('cast-activo');
-        document.getElementById('cast-txt').innerText = "CONECTAR A TV";
-        castListo = true;
-        logConsole("SISTEMA LISTO.");
-      } catch(e) {
-        logConsole("Error en inicializarCast: " + e.message);
-      }
-    }
-
-    function intentarConexion() {
-      if (!castListo) return;
+    function inicializarFramework() {
       var context = cast.framework.CastContext.getInstance();
-      context.requestSession().then(
-        function() {
-          logConsole("Conexión exitosa.");
-          var session = context.getCurrentSession();
-          if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
-        },
-        function(err) { logConsole("Error: " + err); }
-      );
+      context.setOptions({
+        receiverApplicationId: APP_ID,
+        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+      });
+
+      // Escuchar si hay televisores disponibles
+      context.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, function(event) {
+        if (event.castState !== cast.framework.CastState.NO_DEVICES_AVAILABLE) {
+          document.getElementById('btn-cast').classList.remove('hidden');
+          document.getElementById('status').innerText = "¡Televisor encontrado!";
+        }
+      });
     }
 
-    function logConsole(msg) { console.log("[Turnero] " + msg); }
-
-    // ... (Mantén tu lógica de confirmarSede, cargarTurnos y procesarData) ...
+    function conectarTV() {
+      var context = cast.framework.CastContext.getInstance();
+      context.requestSession().then(function() {
+        document.getElementById('status').innerText = "Conectado. Enviando señal...";
+        var session = context.getCurrentSession();
+        if (session) {
+          session.sendMessage(NAMESPACE, { sede: sedeActual });
+        }
+      }).catch(function(err) {
+        document.getElementById('status').innerText = "Error: " + err;
+      });
+    }
   </script>
 </body>
 </html>
