@@ -2,8 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar - Versión Estable</title>
+  <title>Turnero Comfamiliar - Calle 20</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  
+  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
   
   <script src="cast_framework.js"></script>
 
@@ -11,25 +13,22 @@
     :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
     body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
     
-    /* Botón de Cast: Estilo 'Deshabilitado' inicial */
     #btn-cast {
       position: absolute; top: 20px; right: 20px; z-index: 1001;
       background: #eee; color: #888; padding: 12px 25px; border-radius: 50px;
-      display: flex; align-items: center; cursor: not-allowed;
-      border: 2px solid #ccc; opacity: 0.5; transition: all 0.3s;
+      display: flex; align-items: center; cursor: not-allowed; border: 2px solid #ccc; opacity: 0.5;
     }
-    /* Clase que activamos por JS */
-    .cast-ready { 
-      background: white !important; color: #333 !important; 
-      cursor: pointer !important; opacity: 1 !important; 
-      border-color: var(--primary) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    #btn-cast img { width: 30px; margin-right: 10px; filter: grayscale(1); }
-    .cast-ready img { filter: grayscale(0) !important; }
+    .cast-ready { background: white !important; color: #333 !important; cursor: pointer !important; opacity: 1 !important; border-color: var(--primary) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    #btn-cast img { width: 30px; margin-right: 10px; }
 
     #selector-sede { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
     select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 320px; }
     .btn-main { padding: 15px 50px; font-size: 1.3rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+    
+    .container { display: flex; height: 100vh; visibility: hidden; }
+    .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; }
+    .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); line-height: 1; }
+    .side-panel { flex: 1; background: var(--primary); color: white; padding: 30px; }
   </style>
 </head>
 <body>
@@ -40,81 +39,72 @@
   </div>
 
   <div id="selector-sede">
-    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 250px; margin-bottom: 20px; filter: brightness(0) invert(1);">
+    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 250px; filter: brightness(0) invert(1);">
     <h1>SISTEMA DE TURNOS</h1>
     <select id="lista-sedes">
       <option value="Galicia">Sede Galicia</option>
       <option value="Circunvalar">Sede Circunvalar</option>
-      <option value="Calle20">Sede Calle 20</option> <option value="Cuba">Sede Cuba</option>
+      <option value="Calle20">Sede Calle 20</option>
+      <option value="Cuba">Sede Cuba</option>
     </select>
-    <button class="btn-main" onclick="confirmarSede()">INICIAR TURNERO</button>
+    <button class="btn-main" onclick="confirmarSede()">INICIAR</button>
   </div>
 
-  <div id="app-container" style="display: flex; height: 100vh; visibility: hidden;">
-     </div>
+  <div id="app-container" class="container">
+    <div class="main-panel">
+      <div style="font-size: 2rem; color: #7f8c8d;">TURNO ACTUAL</div>
+      <div id="num-turno" class="turno-actual">--</div>
+      <div id="nombre-persona" style="font-size: 4rem; font-weight: bold;">Cargando...</div>
+      <div id="ventanilla-display" style="background:var(--accent); color:white; padding:10px 50px; border-radius:50px; font-size:3rem; font-weight:bold; display:none; margin-top:20px;">
+        VENTANILLA <span id="num-ventanilla">-</span>
+      </div>
+    </div>
+    <div class="side-panel">
+      <h2 style="border-bottom: 2px solid white; padding-bottom: 10px;">SIGUIENTES</h2>
+      <div id="lista-espera"></div>
+    </div>
+  </div>
 
- <script>
+  <script>
     var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
     var APP_ID = "B01CDD80";
     var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
     var sedeActual = "";
     var castListo = false;
 
-    // --- MONITOR DE INICIALIZACIÓN ULTRA-SEGURO ---
+    // --- MONITOR DE INICIALIZACIÓN ---
     var monitor = setInterval(function() {
-      // Verificamos que existan las 3 piezas del rompecabezas
-      var pieza1_Local = (window.cast && window.cast.framework);
-      var pieza2_Browser = (window.chrome && window.chrome.cast);
-      var pieza3_ApiConfig = pieza2_Browser && window.chrome.cast.isAvailable;
+      var p1 = (window.cast && window.cast.framework);
+      var p2 = (window.chrome && window.chrome.cast);
+      console.log("[Turnero] Local=" + p1 + " | Browser=" + p2);
 
-      console.log("[Turnero] Verificando: Local=" + pieza1_Local + " | Browser=" + pieza2_Browser);
-
-      if (pieza1_Local && pieza2_Browser) {
-        console.log("[Turnero] Ecosistema completo. Configurando Cast...");
-        inicializarCastSafe();
+      if (p1 && p2) {
+        inicializarCast();
         clearInterval(monitor);
       }
-    }, 2000); // 2 segundos entre intentos para no saturar
+    }, 2000);
 
-    function inicializarCastSafe() {
+    function inicializarCast() {
       try {
         var context = cast.framework.CastContext.getInstance();
-        
-        // Usamos strings directos para 'origin_scoped' para evitar errores de objeto
         context.setOptions({
           receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped',
-          resumeSavedSession: true
+          autoJoinPolicy: 'origin_scoped'
         });
-
-        // Activamos el botón
-        var btn = document.getElementById('btn-cast');
-        btn.classList.add('cast-ready');
+        document.getElementById('btn-cast').classList.add('cast-ready');
         document.getElementById('cast-status').innerText = "CONECTAR A TV";
         castListo = true;
-        console.log("[Turnero] ¡SISTEMA LISTO Y CONFIGURADO!");
-      } catch (e) {
-        // Si falla, es que chrome.cast todavía no tiene los sub-objetos listos
-        console.warn("[Turnero] Reintentando configuración en 2s... (Error: " + e.message + ")");
-        setTimeout(inicializarCastSafe, 2000);
-      }
+      } catch (e) { console.error("Error inicializando:", e.message); }
     }
 
     function lanzarCast() {
       if (!castListo) return;
-      
-      var context = cast.framework.CastContext.getInstance();
-      context.requestSession().then(
+      cast.framework.CastContext.getInstance().requestSession().then(
         function() {
-          console.log("[Turnero] Sesión iniciada con éxito.");
-          var session = context.getCurrentSession();
-          if (session) {
-            session.sendMessage(NAMESPACE, { sede: sedeActual });
-          }
+          var session = cast.framework.CastContext.getInstance().getCurrentSession();
+          if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
         },
-        function(err) {
-          console.error("[Turnero] El usuario canceló o el TV no respondió: " + err);
-        }
+        function(err) { console.log("Sesión cancelada"); }
       );
     }
 
@@ -123,12 +113,12 @@
       document.getElementById('selector-sede').style.display = 'none';
       document.getElementById('app-container').style.visibility = 'visible';
       if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      
       setInterval(actualizarDatos, 5000);
       actualizarDatos();
     }
 
     function actualizarDatos() {
+      if (!sedeActual) return;
       var script = document.createElement('script');
       script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarJSONP";
       document.body.appendChild(script);
@@ -137,18 +127,29 @@
 
     window.procesarJSONP = function(data) {
       if (!data) return;
-      var t = (data.listaLlamados || [])[0];
-      if (t) {
-        document.getElementById('num-turno').innerText = t.id;
-        document.getElementById('nombre-persona').innerText = t.nombre;
-        document.getElementById('num-ventanilla').innerText = t.ventanilla;
-        document.getElementById('ventanilla-display').style.display = "block";
+      
+      // Verificación de seguridad para evitar el error 'null'
+      var elTurno = document.getElementById('num-turno');
+      var elNombre = document.getElementById('nombre-persona');
+      var elVentanilla = document.getElementById('num-ventanilla');
+      var elBox = document.getElementById('ventanilla-display');
+
+      if (elTurno && data.listaLlamados && data.listaLlamados[0]) {
+        var t = data.listaLlamados[0];
+        elTurno.innerText = t.id;
+        elNombre.innerText = t.nombre;
+        elVentanilla.innerText = t.ventanilla;
+        elBox.style.display = "block";
       }
-      var html = "";
-      (data.proximos || []).forEach(function(item) {
-        html += '<div style="font-size:1.8rem; margin-bottom:10px; padding:15px; background:rgba(255,255,255,0.1); border-radius:10px; border-left:5px solid #e67e22;">' + item.id + ' - ' + item.nombre + '</div>';
-      });
-      document.getElementById('lista-espera').innerHTML = html;
+
+      var elLista = document.getElementById('lista-espera');
+      if (elLista && data.proximos) {
+        var html = "";
+        data.proximos.forEach(function(item) {
+          html += '<div style="font-size:1.5rem; margin-bottom:10px; padding:10px; background:rgba(255,255,255,0.1); border-radius:10px;">' + item.id + ' - ' + item.nombre + '</div>';
+        });
+        elLista.innerHTML = html;
+      }
     };
   </script>
 </body>
