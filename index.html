@@ -61,30 +61,47 @@
   </div>
 
   <script>
-    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
-    var APP_ID = "B01CDD80";
-    var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
-    var sedeActual = "";
-    var castListo = false;
+    // 1. FORZAR LA CARGA DEL DRIVER
+  // Creamos un elemento que Chrome reconoce como "necesito el driver de Cast"
+  var castTag = document.createElement('google-cast-button');
+  castTag.style.display = 'none';
+  document.body.appendChild(castTag);
 
-    // --- 1. DESPERTADOR DE HARDWARE (NATIVO) ---
-    // Esto obliga a Chrome a inyectar 'chrome.cast' sin usar links de Google
-    if (navigator.presentation && !navigator.presentation.defaultRequest) {
-      navigator.presentation.defaultRequest = new PresentationRequest(['https://google.com/cast/#' + APP_ID]);
+  var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
+  var APP_ID = "B01CDD80";
+  var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
+  var sedeActual = "";
+  var castListo = false;
+
+  // 2. MONITOR DE ESTADO
+  var monitor = setInterval(function() {
+    // Intentamos buscar el driver en 3 lugares diferentes donde Chrome suele esconderlo
+    var browserAPI = window.chrome && window.chrome.cast;
+    
+    console.log("[Turnero] Motor Local: OK | Driver Browser: " + (browserAPI ? "OK" : "FALTA"));
+
+    if (window.cast && window.cast.framework && browserAPI) {
+      inicializarSistema();
+      clearInterval(monitor);
     }
+  }, 2000);
 
-    // --- 2. MONITOR DE ESTADO ---
-    var monitor = setInterval(function() {
-      var motor = (window.cast && window.cast.framework);
-      var browser = (window.chrome && window.chrome.cast);
+  function inicializarSistema() {
+    try {
+      var context = cast.framework.CastContext.getInstance();
+      context.setOptions({
+        receiverApplicationId: APP_ID,
+        autoJoinPolicy: 'origin_scoped'
+      });
       
-      console.log("[Turnero] Motor=" + (motor ? "OK" : "FALTA") + " | Browser=" + (browser ? "OK" : "FALTA"));
-
-      if (motor && browser) {
-        inicializarCast();
-        clearInterval(monitor);
-      }
-    }, 2000);
+      document.getElementById('btn-cast').classList.add('cast-ready');
+      document.getElementById('cast-status').innerText = "CONECTAR A TV";
+      castListo = true;
+      console.log("¡DRIVER INYECTADO EXITOSAMENTE!");
+    } catch (e) {
+      console.warn("Reintentando inicialización...");
+    }
+  }
 
     function inicializarCast() {
       try {
