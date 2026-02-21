@@ -3,8 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Turnero Comfamiliar - Calle 20</title>
-  
-  <script src="cast_framework.js"></script>
 
   <style>
     :root { --primary: #004a99; --accent: #e67e22; }
@@ -60,27 +58,27 @@
     </div>
   </div>
 
-  <script>
-    // 1. FORZAR LA CARGA DEL DRIVER
-  // Creamos un elemento que Chrome reconoce como "necesito el driver de Cast"
-  var castTag = document.createElement('google-cast-button');
-  castTag.style.display = 'none';
-  document.body.appendChild(castTag);
+  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
 
+<script src="cast_framework.js"></script>
+
+<script>
   var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
   var APP_ID = "B01CDD80";
   var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
   var sedeActual = "";
   var castListo = false;
 
-  // 2. MONITOR DE ESTADO
+  // MONITOR DE ESTADO
   var monitor = setInterval(function() {
-    // Intentamos buscar el driver en 3 lugares diferentes donde Chrome suele esconderlo
-    var browserAPI = window.chrome && window.chrome.cast;
+    // Pieza A: Tu archivo en GitHub
+    var motorLocal = (window.cast && window.cast.framework);
+    // Pieza B: El driver que inyecta Chrome gracias al link de arriba
+    var driverChrome = (window.chrome && window.chrome.cast);
     
-    console.log("[Turnero] Motor Local: OK | Driver Browser: " + (browserAPI ? "OK" : "FALTA"));
+    console.log("[Turnero] Motor Local: " + (motorLocal ? "OK" : "FALTA") + " | Driver Browser: " + (driverChrome ? "OK" : "FALTA"));
 
-    if (window.cast && window.cast.framework && browserAPI) {
+    if (motorLocal && driverChrome) {
       inicializarSistema();
       clearInterval(monitor);
     }
@@ -94,12 +92,13 @@
         autoJoinPolicy: 'origin_scoped'
       });
       
-      document.getElementById('btn-cast').classList.add('cast-ready');
+      var btn = document.getElementById('btn-cast');
+      btn.classList.add('cast-ready');
       document.getElementById('cast-status').innerText = "CONECTAR A TV";
       castListo = true;
-      console.log("¡DRIVER INYECTADO EXITOSAMENTE!");
+      console.log("¡SISTEMA VINCULADO AL HARDWARE!");
     } catch (e) {
-      console.warn("Reintentando inicialización...");
+      console.error("Error de inicialización:", e.message);
     }
   }
 
