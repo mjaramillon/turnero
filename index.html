@@ -80,28 +80,27 @@
     var sedeActual = "";
     var castListo = false;
 
-    // 1. CHEQUEO DE LIBRERÍA (Cada segundo hasta que aparezca)
+    // 1. CHEQUEO DE SEGURIDAD TOTAL (Framework + API de bajo nivel)
+    // No arrancamos hasta que window.chrome.cast esté definido
     var checkCast = setInterval(function() {
-      if (window.cast && window.cast.framework) {
+      if (window.cast && window.cast.framework && window.chrome && window.chrome.cast) {
+        logConsole("Todo el ecosistema de Google Cast detectado.");
         inicializarCast();
         clearInterval(checkCast);
+      } else {
+        logConsole("Esperando componentes secundarios de Google...");
       }
-    }, 1000);
+    }, 1500); // Aumentamos un poco el tiempo para dar respiro a la red
 
     function inicializarCast() {
       if (castListo) return;
       try {
         var context = cast.framework.CastContext.getInstance();
         
-        // CORRECCIÓN DEL ERROR: Usamos el objeto directo de la librería framework
-        // o un fallback de cadena si el objeto no ha cargado sus constantes.
-        var joinPolicy = (cast.framework.AutoJoinPolicy) 
-                         ? cast.framework.AutoJoinPolicy.ORIGIN_SCOPED 
-                         : 'origin_scoped';
-
+        // Configuramos las opciones usando cadenas directas para evitar fallos de objeto
         context.setOptions({
           receiverApplicationId: APP_ID,
-          autoJoinPolicy: joinPolicy
+          autoJoinPolicy: 'origin_scoped' 
         });
         
         // ACTIVAR BOTÓN VISUALMENTE
@@ -109,31 +108,35 @@
         btn.classList.add('cast-activo');
         document.getElementById('cast-txt').innerText = "CONECTAR A TV";
         castListo = true;
-        console.log("Cast Framework inicializado correctamente.");
+        logConsole("¡SISTEMA LISTO! Ya puedes conectar.");
       } catch(e) {
-        console.error("Error en inicializarCast: ", e.message);
+        logConsole("Error en inicializarCast: " + e.message);
       }
     }
 
     function intentarConexion() {
-      if (!castListo) {
-        alert("Esperando al sistema de Google... Por favor espera un momento.");
-        return;
-      }
+      if (!castListo) return;
+      
+      logConsole("Abriendo selector de dispositivos...");
       var context = cast.framework.CastContext.getInstance();
+      
       context.requestSession().then(
         function() {
-          console.log("Sesión iniciada. Enviando sede...");
+          logConsole("Conectado al TV. Enviando sede: " + sedeActual);
           var session = context.getCurrentSession();
           if (session) {
             session.sendMessage(NAMESPACE, { sede: sedeActual });
           }
         },
         function(err) { 
-          console.error("No se pudo iniciar la sesión: " + err); 
-          if(err !== 'cancel') alert("Error al conectar con el televisor. Revisa la red.");
+          logConsole("Conexión cancelada o fallida: " + err);
         }
       );
+    }
+
+    // Auxiliar para depuración en pantalla (opcional)
+    function logConsole(msg) {
+      console.log("[Turnero] " + msg);
     }
 
     // 2. LÓGICA DE SEDE Y DATOS (JSONP)
@@ -142,10 +145,9 @@
       document.getElementById('selector-sede').style.display = 'none';
       document.getElementById('app-container').style.visibility = 'visible';
       
-      // Desbloqueo de audio para la voz
+      // Desbloqueo de audio nativo
       if (window.speechSynthesis) {
-        var dummy = new SpeechSynthesisUtterance("");
-        window.speechSynthesis.speak(dummy);
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
       }
       
       setInterval(cargarTurnos, 5000);
@@ -161,7 +163,6 @@
 
     window.procesarData = function(data) {
       if (!data) return;
-      
       var principales = data.listaLlamados || [];
       if (principales.length > 0) {
         var t = principales[0];
@@ -170,7 +171,6 @@
         document.getElementById('num-ventanilla').innerText = t.ventanilla;
         document.getElementById('ventanilla-display').style.display = "block";
       }
-
       var html = "";
       (data.proximos || []).forEach(function(p) {
         html += '<div class="espera-item"><strong>' + p.id + '</strong> - ' + p.nombre + '</div>';
