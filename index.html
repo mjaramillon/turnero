@@ -2,50 +2,54 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar - Plan B</title>
+  <title>Turnero Comfamiliar - Final</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   
   <script src="cast_framework.js"></script>
 
   <style>
     :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
-    body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
     
-    /* Botón de Cast: Siempre presente para evitar errores de carga */
+    /* Botón: Solo se activa cuando el SDK está realmente listo */
     #btn-cast {
       position: absolute; top: 20px; right: 20px; z-index: 1001;
-      background: white; padding: 12px 25px; border-radius: 50px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; 
-      cursor: pointer; border: 2px solid #ddd;
+      background: #ccc; color: #666; padding: 12px 25px; border-radius: 50px;
+      display: flex; align-items: center; cursor: not-allowed; opacity: 0.5;
+      border: 2px solid #999; transition: all 0.3s;
     }
-    #btn-cast img { width: 30px; margin-right: 10px; }
+    .ready { 
+      background: white !important; color: #333 !important; 
+      cursor: pointer !important; opacity: 1 !important; 
+      border-color: var(--primary) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    #btn-cast img { width: 30px; margin-right: 10px; filter: grayscale(1); }
+    .ready img { filter: grayscale(0) !important; }
 
-    /* Estilos de la Interfaz */
+    /* Estilos Interfaz */
     #selector-sede { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
-    select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 320px; }
-    .btn-main { padding: 15px 50px; font-size: 1.3rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
     .container { display: flex; height: 100vh; visibility: hidden; }
     .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; }
     .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); line-height: 1; }
-    .side-panel { flex: 1; background: var(--primary); color: white; padding: 30px; }
   </style>
 </head>
 <body>
 
   <div id="btn-cast" onclick="lanzarCast()">
     <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png">
-    <span id="cast-status">CONECTAR A TV</span>
+    <span id="cast-status">CARGANDO SDK...</span>
   </div>
 
   <div id="selector-sede">
-    <h1>CONFIGURACIÓN DE SEDE</h1>
-    <select id="lista-sedes">
+    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 250px; margin-bottom: 20px; filter: brightness(0) invert(1);">
+    <h1>SISTEMA DE TURNOS</h1>
+    <select id="lista-sedes" style="padding:15px; font-size:1.5rem; border-radius:10px; margin-bottom:20px;">
       <option value="Galicia">Sede Galicia</option>
       <option value="Circunvalar">Sede Circunvalar</option>
       <option value="Calle20">Sede Calle 20</option>
       <option value="Cuba">Sede Cuba</option>
     </select>
-    <button class="btn-main" onclick="confirmarSede()">INICIAR</button>
+    <button onclick="confirmarSede()" style="padding:15px 50px; font-size:1.3rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">INICIAR</button>
   </div>
 
   <div id="app-container" class="container">
@@ -56,8 +60,8 @@
         VENTANILLA <span id="num-ventanilla">-</span>
       </div>
     </div>
-    <div class="side-panel">
-      <h2 style="border-bottom: 2px solid white; padding-bottom: 10px;">EN ESPERA</h2>
+    <div class="side-panel" style="flex:1; background:var(--primary); color:white; padding:30px;">
+      <h2 style="border-bottom:2px solid white;">SIGUIENTES</h2>
       <div id="lista-espera"></div>
     </div>
   </div>
@@ -69,52 +73,54 @@
     var sedeActual = "";
     var castListo = false;
 
-    // Monitorización de la librería local
-    var checkCast = setInterval(function() {
-      if (window.cast && window.cast.framework) {
-        inicializarCast();
-        clearInterval(checkCast);
+    // --- PROTECCIÓN CONTRA UNDEFINED ---
+    // Esperamos a que el objeto 'chrome' y 'cast' existan simultáneamente
+    var monitorSDK = setInterval(function() {
+      if (window.chrome && window.chrome.cast && window.cast && window.cast.framework) {
+        console.log("Ecosistema de Cast detectado.");
+        inicializarCastSafe();
+        clearInterval(monitorSDK);
       }
     }, 1000);
 
-    function inicializarCast() {
+    function inicializarCastSafe() {
       try {
         var context = cast.framework.CastContext.getInstance();
+        
+        // Usamos la cadena directamente para evitar leer propiedades de objetos no cargados
         context.setOptions({
           receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped'
+          autoJoinPolicy: 'origin_scoped' 
         });
+
+        // Activamos el botón visualmente
+        var btn = document.getElementById('btn-cast');
+        btn.className = "ready";
+        document.getElementById('cast-status').innerText = "CONECTAR A TV";
         castListo = true;
-        console.log("SDK Local inicializado correctamente.");
-      } catch(e) {
-        console.error("Error inicializando SDK: ", e.message);
+      } catch (e) {
+        console.error("Fallo en inicialización segura:", e.message);
       }
     }
 
     function lanzarCast() {
-      if (!castListo) {
-        alert("La librería aún se está cargando. Por favor espera 2 segundos.");
-        return;
-      }
+      if (!castListo) return;
       var context = cast.framework.CastContext.getInstance();
       context.requestSession().then(
         function() {
           var session = context.getCurrentSession();
           if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
         },
-        function(err) { console.error("Sesión fallida: " + err); }
+        function(err) { console.error("Cancelado o error: " + err); }
       );
     }
 
+    // --- LÓGICA DE DATOS ---
     function confirmarSede() {
       sedeActual = document.getElementById('lista-sedes').value;
       document.getElementById('selector-sede').style.display = 'none';
       document.getElementById('app-container').style.visibility = 'visible';
-      
-      // Desbloqueo de audio nativo
-      if (window.speechSynthesis) {
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      }
+      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
       
       setInterval(actualizarDatos, 5000);
       actualizarDatos();
@@ -138,7 +144,7 @@
       }
       var html = "";
       (data.proximos || []).forEach(function(item) {
-        html += '<div class="espera-item"><strong>' + item.id + '</strong> - ' + item.nombre + '</div>';
+        html += '<div style="font-size:1.8rem; margin-bottom:10px; padding:10px; background:rgba(255,255,255,0.1); border-radius:10px;">' + item.id + ' - ' + item.nombre + '</div>';
       });
       document.getElementById('lista-espera').innerHTML = html;
     };
