@@ -2,84 +2,93 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Casa - Comfamiliar</title>
+  <title>Diagnóstico Turnero - Comfamiliar</title>
   
   <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
 
   <style>
-    :root { --primary: #004a99; --accent: #e67e22; }
-    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; text-align: center; }
-    
-    /* El botón de Cast oficial de Google */
-    #btn-cast {
-      margin: 20px;
-      padding: 15px 30px;
-      background: white;
-      border: 2px solid var(--primary);
-      border-radius: 50px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      font-weight: bold;
-    }
-    /* Estilo para cuando no hay dispositivos o no ha cargado */
-    .hidden { display: none !important; }
+    body { font-family: sans-serif; padding: 20px; background: #2c3e50; color: white; text-align: center; }
+    #log { background: #000; color: #0f0; padding: 15px; text-align: left; font-family: monospace; height: 300px; overflow-y: auto; border-radius: 10px; margin-top: 20px; }
+    .btn { padding: 15px 30px; font-size: 1.2rem; background: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; display: none; }
+    .success { color: #0f0; font-weight: bold; }
+    .error { color: #ff4d4d; }
   </style>
 </head>
 <body>
 
-  <h1>SISTEMA DE TURNOS (MODO CASA)</h1>
+  <h2>DIAGNÓSTICO DE CONEXIÓN CHROMECAST</h2>
+  <p id="status">Estado: Verificando componentes...</p>
+  
+  <button id="btn-transmitir" class="btn" onclick="conectar()">CONECTAR AHORA</button>
 
-  <div id="btn-cast" class="hidden" onclick="conectarTV()">
-    <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png" style="width:24px; margin-right:10px;">
-    CONECTAR AL TELEVISOR
-  </div>
-
-  <div id="status" style="color: #666; font-size: 0.9rem;">Buscando SDK de Google...</div>
+  <div id="log">Iniciando traza de errores...</div>
 
   <script>
-    var APP_ID = 'B01CDD80';
-    var NAMESPACE = 'urn:x-cast:com.comfamiliar.turnero';
-    var sedeActual = "Galicia"; // Para probar en casa
+    function escribirLog(msg, color) {
+      var log = document.getElementById('log');
+      var span = document.createElement('div');
+      if(color) span.className = color;
+      span.innerHTML = "> " + msg;
+      log.appendChild(span);
+      log.scrollTop = log.scrollHeight;
+    }
 
-    // 1. EL DISPARADOR AUTOMÁTICO DE GOOGLE
+    // 1. EL MÉTODO OFICIAL
     window.__onGCastApiAvailable = function(isAvailable) {
       if (isAvailable) {
-        document.getElementById('status').innerText = "SDK cargado. Buscando dispositivos en tu Wi-Fi...";
-        inicializarFramework();
+        escribirLog("Google ha respondido: ¡El SDK está disponible!", "success");
+        inicializar();
       } else {
-        document.getElementById('status').innerText = "SDK cargado, pero no hay Chromecasts en esta red.";
+        escribirLog("Google ha respondido: SDK NO disponible en este navegador.", "error");
       }
     };
 
-    function inicializarFramework() {
-      var context = cast.framework.CastContext.getInstance();
-      context.setOptions({
-        receiverApplicationId: APP_ID,
-        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
-      });
+    // 2. EL MÉTODO DE FUERZA BRUTA (Por si el anterior no se dispara)
+    var intentos = 0;
+    var monitor = setInterval(function() {
+      intentos++;
+      escribirLog("Intento " + intentos + ": Verificando objetos en memoria...");
+      
+      var hasCast = !!window.cast;
+      var hasFramework = hasCast && !!window.cast.framework;
+      var hasChromeCast = !!window.chrome && !!window.chrome.cast;
 
-      // Escuchar si hay televisores disponibles
-      context.addEventListener(cast.framework.CastContextEventType.CAST_STATE_CHANGED, function(event) {
-        if (event.castState !== cast.framework.CastState.NO_DEVICES_AVAILABLE) {
-          document.getElementById('btn-cast').classList.remove('hidden');
-          document.getElementById('status').innerText = "¡Televisor encontrado!";
-        }
-      });
+      escribirLog("Cast: " + hasCast + " | Framework: " + hasFramework + " | ChromeCast API: " + hasChromeCast);
+
+      if (hasFramework && hasChromeCast) {
+        escribirLog("¡Todos los componentes encontrados manualmente!", "success");
+        clearInterval(monitor);
+        inicializar();
+      }
+
+      if (intentos > 15) {
+        escribirLog("ERROR CRÍTICO: El SDK no carga. Posible bloqueo de extensión o navegador no compatible.", "error");
+        clearInterval(monitor);
+      }
+    }, 2000);
+
+    function inicializar() {
+      try {
+        var context = cast.framework.CastContext.getInstance();
+        context.setOptions({
+          receiverApplicationId: 'B01CDD80',
+          autoJoinPolicy: 'origin_scoped'
+        });
+        
+        document.getElementById('status').innerText = "¡SISTEMA LISTO!";
+        document.getElementById('btn-transmitir').style.display = "inline-block";
+        escribirLog("Esperando que hagas clic en CONECTAR.", "success");
+      } catch(e) {
+        escribirLog("Fallo al configurar el contexto: " + e.message, "error");
+      }
     }
 
-    function conectarTV() {
-      var context = cast.framework.CastContext.getInstance();
-      context.requestSession().then(function() {
-        document.getElementById('status').innerText = "Conectado. Enviando señal...";
-        var session = context.getCurrentSession();
-        if (session) {
-          session.sendMessage(NAMESPACE, { sede: sedeActual });
-        }
-      }).catch(function(err) {
-        document.getElementById('status').innerText = "Error: " + err;
-      });
+    function conectar() {
+      escribirLog("Abriendo selector de dispositivos...");
+      cast.framework.CastContext.getInstance().requestSession().then(
+        function() { escribirLog("Conexión establecida con éxito.", "success"); },
+        function(err) { escribirLog("Error de conexión: " + err, "error"); }
+      );
     }
   </script>
 </body>
