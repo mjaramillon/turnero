@@ -80,7 +80,7 @@
     var sedeActual = "";
     var castListo = false;
 
-    // 1. CHEQUEO CONSTANTE DE LIBRERÍA (Plan B)
+    // 1. CHEQUEO DE LIBRERÍA (Cada segundo hasta que aparezca)
     var checkCast = setInterval(function() {
       if (window.cast && window.cast.framework) {
         inicializarCast();
@@ -88,51 +88,65 @@
       }
     }, 1000);
 
-    // También mantenemos el método oficial por si acaso
-    window.__onGCastApiAvailable = function(isAvailable) {
-      if (isAvailable) inicializarCast();
-    };
-
     function inicializarCast() {
       if (castListo) return;
       try {
         var context = cast.framework.CastContext.getInstance();
+        
+        // CORRECCIÓN DEL ERROR: Usamos el objeto directo de la librería framework
+        // o un fallback de cadena si el objeto no ha cargado sus constantes.
+        var joinPolicy = (cast.framework.AutoJoinPolicy) 
+                         ? cast.framework.AutoJoinPolicy.ORIGIN_SCOPED 
+                         : 'origin_scoped';
+
         context.setOptions({
           receiverApplicationId: APP_ID,
-          autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+          autoJoinPolicy: joinPolicy
         });
         
         // ACTIVAR BOTÓN VISUALMENTE
-        document.getElementById('btn-cast').classList.add('cast-activo');
+        var btn = document.getElementById('btn-cast');
+        btn.classList.add('cast-activo');
         document.getElementById('cast-txt').innerText = "CONECTAR A TV";
         castListo = true;
-        console.log("Cast Framework inicializado con éxito.");
+        console.log("Cast Framework inicializado correctamente.");
       } catch(e) {
-        console.error("Error inicializando Cast: ", e);
+        console.error("Error en inicializarCast: ", e.message);
       }
     }
 
     function intentarConexion() {
       if (!castListo) {
-        alert("El sistema de Google Cast aún no está listo. Verifica tu conexión a internet.");
+        alert("Esperando al sistema de Google... Por favor espera un momento.");
         return;
       }
       var context = cast.framework.CastContext.getInstance();
       context.requestSession().then(
         function() {
+          console.log("Sesión iniciada. Enviando sede...");
           var session = context.getCurrentSession();
-          if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
+          if (session) {
+            session.sendMessage(NAMESPACE, { sede: sedeActual });
+          }
         },
-        function(err) { console.error("Error de sesión: " + err); }
+        function(err) { 
+          console.error("No se pudo iniciar la sesión: " + err); 
+          if(err !== 'cancel') alert("Error al conectar con el televisor. Revisa la red.");
+        }
       );
     }
 
-    // 2. LÓGICA DE DATOS
+    // 2. LÓGICA DE SEDE Y DATOS (JSONP)
     function confirmarSede() {
       sedeActual = document.getElementById('lista-sedes').value;
       document.getElementById('selector-sede').style.display = 'none';
       document.getElementById('app-container').style.visibility = 'visible';
-      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      
+      // Desbloqueo de audio para la voz
+      if (window.speechSynthesis) {
+        var dummy = new SpeechSynthesisUtterance("");
+        window.speechSynthesis.speak(dummy);
+      }
       
       setInterval(cargarTurnos, 5000);
       cargarTurnos();
@@ -147,6 +161,7 @@
 
     window.procesarData = function(data) {
       if (!data) return;
+      
       var principales = data.listaLlamados || [];
       if (principales.length > 0) {
         var t = principales[0];
@@ -155,6 +170,7 @@
         document.getElementById('num-ventanilla').innerText = t.ventanilla;
         document.getElementById('ventanilla-display').style.display = "block";
       }
+
       var html = "";
       (data.proximos || []).forEach(function(p) {
         html += '<div class="espera-item"><strong>' + p.id + '</strong> - ' + p.nombre + '</div>';
