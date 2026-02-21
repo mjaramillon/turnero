@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar</title>
+  <title>Turnero Comfamiliar v3</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js?loadCastFramework=1"></script>
   
@@ -10,57 +10,63 @@
     :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
     body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
     
-    /* Selector de Sedes Inicial */
+    /* Selector de Sedes */
     #selector-sede {
       position: fixed; top:0; left:0; width:100%; height:100%; 
       background: var(--primary); z-index: 10000; 
       display: flex; flex-direction: column; justify-content: center; align-items: center; 
-      color: white; text-align: center;
+      color: white;
     }
-    select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 300px; }
-    button { padding: 15px 40px; font-size: 1.2rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+    select { padding: 15px; font-size: 1.5rem; border-radius: 10px; margin: 20px; width: 320px; }
+    #btn-iniciar { padding: 15px 50px; font-size: 1.3rem; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
 
-    /* Contenedor principal */
+    /* Contenedor Principal */
     .container { display: flex; height: 100vh; visibility: hidden; }
     .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; position: relative; }
     .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); margin: 0; line-height: 1; }
-    .nombre-usuario { font-size: 4rem; color: #2c3e50; font-weight: bold; margin: 10px 0; }
-    .ventanilla-box { background: var(--accent); color: white; padding: 15px 60px; border-radius: 80px; font-size: 4rem; font-weight: bold; margin-top: 20px; }
+    .nombre-usuario { font-size: 4rem; color: #2c3e50; font-weight: bold; margin: 15px 0; }
+    .ventanilla-box { background: var(--accent); color: white; padding: 15px 60px; border-radius: 80px; font-size: 4rem; font-weight: bold; }
     
     .side-panel { flex: 1; background: var(--primary); color: white; padding: 30px; }
     .espera-item { font-size: 1.8rem; margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 12px; border-left: 8px solid var(--accent); }
 
-    /* Estilo corregido del botón Chromecast */
-    .cast-container { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; background: white; padding: 5px 15px; border-radius: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    google-cast-launcher { width: 40px; height: 40px; cursor: pointer; }
-    .cast-label { color: #555; font-size: 0.9rem; font-weight: bold; margin-left: 10px; }
+    /* BOTÓN DE CAST FORZADO */
+    .cast-bar {
+      position: absolute; top: 20px; right: 20px; z-index: 1001;
+      background: white; padding: 10px 20px; border-radius: 50px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      display: flex; align-items: center; cursor: pointer;
+      border: 2px solid #ddd;
+    }
+    .cast-bar:hover { background: #f9f9f9; border-color: var(--primary); }
+    .cast-bar img { width: 30px; margin-right: 10px; }
+    .cast-bar span { font-weight: bold; color: #333; }
   </style>
 </head>
 <body>
 
   <div id="selector-sede">
-    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 300px; margin-bottom: 30px; filter: brightness(0) invert(1);">
-    <h1>CONFIGURACIÓN DE TURNERO</h1>
-    <p>Seleccione la sede de esta pantalla:</p>
+    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 280px; margin-bottom: 20px; filter: brightness(0) invert(1);">
+    <h1>SISTEMA DE TURNOS</h1>
     <select id="lista-sedes">
       <option value="Galicia">Sede Galicia</option>
       <option value="Circunvalar">Sede Circunvalar</option>
       <option value="Calle20">Sede Calle 20</option>
       <option value="Cuba">Sede Cuba</option>
     </select>
-    <button onclick="confirmarSede()">INICIAR TURNERO</button>
+    <button id="btn-iniciar" onclick="confirmarSede()">CARGAR TURNERO</button>
   </div>
 
-  <div class="cast-container">
-    <google-cast-launcher id="castbutton"></google-cast-launcher>
-    <span class="cast-label">ENVIAR A TV</span>
+  <div id="btn-cast-manual" class="cast-bar" onclick="lanzarChromecast()" style="display:none;">
+    <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png">
+    <span>CONECTAR A TV</span>
   </div>
 
   <div id="app-container" class="container">
     <div class="main-panel">
-      <div style="font-size: 2rem; color: #7f8c8d;">ATENDIENDO A:</div>
+      <div style="font-size: 2rem; color: #7f8c8d;">TURNO ACTUAL:</div>
       <div id="num-turno" class="turno-actual">--</div>
-      <div id="nombre-persona" class="nombre-usuario">...</div>
+      <div id="nombre-persona" class="nombre-usuario">Cargando...</div>
       <div id="ventanilla-display" class="ventanilla-box" style="display:none;">
         VENTANILLA <span id="num-ventanilla">-</span>
       </div>
@@ -72,7 +78,6 @@
   </div>
 
   <script>
-    // --- CONFIGURACIÓN ---
     var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec"; 
     var APP_ID = "B01CDD80";
     var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
@@ -81,19 +86,7 @@
     var idsAnunciados = [];
     var sedeActual = "";
 
-    // --- LÓGICA DE INICIO ---
-    function confirmarSede() {
-      sedeActual = document.getElementById('lista-sedes').value;
-      document.getElementById('selector-sede').style.display = 'none';
-      document.getElementById('app-container').style.visibility = 'visible';
-      
-      // Activar audio
-      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      
-      iniciarCiclo();
-    }
-
-    // --- LÓGICA CHROMECAST ---
+    // 1. INICIALIZACIÓN DEL SDK
     window.__onGCastApiAvailable = function(isAvailable) {
       if (isAvailable) {
         var context = cast.framework.CastContext.getInstance();
@@ -101,65 +94,81 @@
           receiverApplicationId: APP_ID, 
           autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED 
         });
-        
-        context.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, function(event) {
-          if (event.sessionState === cast.framework.SessionState.SESSION_STARTED) {
-            context.getCurrentSession().sendMessage(NAMESPACE, { sede: sedeActual });
-          }
-        });
+        document.getElementById('btn-cast-manual').style.display = 'flex';
+        console.log("SDK Cast Listo");
       }
     };
 
-    // --- LÓGICA DE DATOS (JSONP) ---
-    function iniciarCiclo() {
-      cargarDatos();
-      setInterval(cargarDatos, 5000);
+    // 2. FUNCIÓN PARA FORZAR LA CONEXIÓN
+    function lanzarChromecast() {
+      var context = cast.framework.CastContext.getInstance();
+      
+      context.requestSession().then(
+        function() {
+          console.log("Sesión de Cast iniciada");
+          var session = context.getCurrentSession();
+          if (session) {
+            session.sendMessage(NAMESPACE, { sede: sedeActual });
+          }
+        },
+        function(err) {
+          if (err !== 'cancel') {
+            alert("Error al conectar: " + err + ". \n\nVerifica:\n1. El Chromecast y el PC deben estar en la misma red Wi-Fi.\n2. El App ID " + APP_ID + " debe estar publicado o el serial del TV registrado en la consola de Cast.");
+          }
+        }
+      );
     }
 
-    function cargarDatos() {
+    function confirmarSede() {
+      sedeActual = document.getElementById('lista-sedes').value;
+      document.getElementById('selector-sede').style.display = 'none';
+      document.getElementById('app-container').style.visibility = 'visible';
+      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      iniciarCiclo();
+    }
+
+    function iniciarCiclo() {
+      actualizarDatos();
+      setInterval(actualizarDatos, 5000);
+    }
+
+    function actualizarDatos() {
       var script = document.createElement('script');
-      script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarRespuesta";
+      script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarJSONP";
       document.body.appendChild(script);
       document.body.removeChild(script);
     }
 
-    function procesarRespuesta(data) {
+    window.procesarJSONP = function(data) {
       if (!data) return;
       llamadosGlobal = data.listaLlamados || [];
-      actualizarUI();
-      renderizarEspera(data.proximos || []);
       
-      llamadosGlobal.forEach(function(t) {
-        if (idsAnunciados.indexOf(t.id) === -1) {
-          hablar(t);
-          idsAnunciados.push(t.id);
-        }
-      });
-    }
-
-    function actualizarUI() {
+      // Actualizar UI
       var t = llamadosGlobal[0];
-      if (!t) return;
-      document.getElementById('num-turno').innerText = t.id;
-      document.getElementById('nombre-persona').innerText = t.nombre;
-      document.getElementById('num-ventanilla').innerText = t.ventanilla;
-      document.getElementById('ventanilla-display').style.display = "block";
-    }
+      if (t) {
+        document.getElementById('num-turno').innerText = t.id;
+        document.getElementById('nombre-persona').innerText = t.nombre;
+        document.getElementById('num-ventanilla').innerText = t.ventanilla;
+        document.getElementById('ventanilla-display').style.display = "block";
+      }
 
-    function renderizarEspera(espera) {
+      // Renderizar Espera
       var html = "";
-      espera.forEach(function(item) {
+      (data.proximos || []).forEach(function(item) {
         html += '<div class="espera-item"><strong>' + item.id + '</strong> - ' + item.nombre + '</div>';
       });
       document.getElementById('lista-espera').innerHTML = html;
-    }
 
-    function hablar(t) {
-      var txt = t.nombre + ". Turno " + t.id + ". Ventanilla " + t.ventanilla;
-      var msg = new SpeechSynthesisUtterance(txt);
-      msg.lang = 'es-ES';
-      window.speechSynthesis.speak(msg);
-    }
+      // Voz
+      llamadosGlobal.forEach(function(t) {
+        if (idsAnunciados.indexOf(t.id) === -1) {
+          var msg = new SpeechSynthesisUtterance(t.nombre + ". Turno " + t.id + ". Ventanilla " + t.ventanilla);
+          msg.lang = 'es-ES';
+          window.speechSynthesis.speak(msg);
+          idsAnunciados.push(t.id);
+        }
+      });
+    };
   </script>
 </body>
 </html>
