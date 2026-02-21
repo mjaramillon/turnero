@@ -65,89 +65,72 @@
       <div id="lista-espera"></div>
     </div>
   </div>
+  
+<script>
+  // ESTO DEBE SALIR EN LA CONSOLA APENAS CARGUES LA PÁGINA
+  console.log("[Turnero] Script iniciado. Verificando archivos locales...");
+</script>
 
-  <script>
+<script src="cast_framework.js"></script>
+
+<script>
     var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
     var APP_ID = "B01CDD80";
     var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
-    var sedeActual = "";
     var castListo = false;
 
-    // --- PROTECCIÓN CONTRA UNDEFINED ---
-    // Esperamos a que el objeto 'chrome' y 'cast' existan simultáneamente
+    // 1. EL MONITOR DE ESTADO (Aumentamos la frecuencia de log)
     var monitorSDK = setInterval(function() {
-      if (window.chrome && window.chrome.cast && window.cast && window.cast.framework) {
-        console.log("Ecosistema de Cast detectado.");
+      var check = {
+        archivo_local: !!(window.cast && window.cast.framework),
+        browser_api: !!(window.chrome && window.chrome.cast),
+        hardware_listo: !!(window.chrome && window.chrome.cast && window.chrome.cast.isAvailable)
+      };
+
+      console.log("[Estado SDK]", check);
+
+      if (check.archivo_local && check.browser_api) {
+        console.log("¡Ecosistema detectado! Intentando inicializar...");
         inicializarCastSafe();
         clearInterval(monitorSDK);
       }
-    }, 1000);
+    }, 2000);
 
     function inicializarCastSafe() {
       try {
         var context = cast.framework.CastContext.getInstance();
-        
-        // Usamos la cadena directamente para evitar leer propiedades de objetos no cargados
         context.setOptions({
           receiverApplicationId: APP_ID,
           autoJoinPolicy: 'origin_scoped' 
         });
 
-        // Activamos el botón visualmente
+        // Cambiamos el botón
         var btn = document.getElementById('btn-cast');
-        btn.className = "ready";
+        btn.style.background = "white";
+        btn.style.color = "#333";
+        btn.style.cursor = "pointer";
+        btn.style.opacity = "1";
         document.getElementById('cast-status').innerText = "CONECTAR A TV";
         castListo = true;
+        console.log("SISTEMA LISTO. Ya puedes presionar el botón.");
       } catch (e) {
-        console.error("Fallo en inicialización segura:", e.message);
+        console.error("Fallo crítico en inicialización:", e.message);
       }
     }
 
     function lanzarCast() {
-      if (!castListo) return;
-      var context = cast.framework.CastContext.getInstance();
-      context.requestSession().then(
+      if (!castListo) {
+        alert("El SDK aún no responde. Prueba refrescando con Ctrl+F5.");
+        return;
+      }
+      cast.framework.CastContext.getInstance().requestSession().then(
         function() {
-          var session = context.getCurrentSession();
+          var session = cast.framework.CastContext.getInstance().getCurrentSession();
           if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
         },
-        function(err) { console.error("Cancelado o error: " + err); }
+        function(err) { console.log("Conexión fallida: " + err); }
       );
     }
-
-    // --- LÓGICA DE DATOS ---
-    function confirmarSede() {
-      sedeActual = document.getElementById('lista-sedes').value;
-      document.getElementById('selector-sede').style.display = 'none';
-      document.getElementById('app-container').style.visibility = 'visible';
-      if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      
-      setInterval(actualizarDatos, 5000);
-      actualizarDatos();
-    }
-
-    function actualizarDatos() {
-      var script = document.createElement('script');
-      script.src = API_URL + "?sede=" + encodeURIComponent(sedeActual) + "&callback=procesarJSONP";
-      document.body.appendChild(script);
-      document.body.removeChild(script);
-    }
-
-    window.procesarJSONP = function(data) {
-      if (!data) return;
-      var t = (data.listaLlamados || [])[0];
-      if (t) {
-        document.getElementById('num-turno').innerText = t.id;
-        document.getElementById('nombre-persona').innerText = t.nombre;
-        document.getElementById('num-ventanilla').innerText = t.ventanilla;
-        document.getElementById('ventanilla-display').style.display = "block";
-      }
-      var html = "";
-      (data.proximos || []).forEach(function(item) {
-        html += '<div style="font-size:1.8rem; margin-bottom:10px; padding:10px; background:rgba(255,255,255,0.1); border-radius:10px;">' + item.id + ' - ' + item.nombre + '</div>';
-      });
-      document.getElementById('lista-espera').innerHTML = html;
-    };
-  </script>
+</script>
 </body>
 </html>
