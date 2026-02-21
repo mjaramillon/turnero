@@ -2,135 +2,90 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Turnero Comfamiliar - Final</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <title>Turnero Comfamiliar - Fix Registro</title>
   
-  <script src="cast_framework.js"></script>
+  <script>
+    // 1. VARIABLE GLOBAL PARA EVITAR RE-REGISTRO
+    window.__onGCastApiAvailable = function(isAvailable) {
+      if (isAvailable) {
+        console.log("[Turnero] Google Cast API disponible nativamente.");
+        inicializarCast();
+      }
+    };
+  </script>
+
+  <script src="https://www.gstatic.com/cv/js/sender/v3/cast_sender.js"></script>
 
   <style>
-    :root { --primary: #004a99; --accent: #e67e22; --secondary: #f4f4f4; }
-    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--secondary); overflow: hidden; }
+    :root { --primary: #004a99; --accent: #e67e22; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; }
     
-    /* Botón: Solo se activa cuando el SDK está realmente listo */
     #btn-cast {
       position: absolute; top: 20px; right: 20px; z-index: 1001;
-      background: #ccc; color: #666; padding: 12px 25px; border-radius: 50px;
-      display: flex; align-items: center; cursor: not-allowed; opacity: 0.5;
-      border: 2px solid #999; transition: all 0.3s;
+      background: white; padding: 12px 25px; border-radius: 50px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; 
+      cursor: pointer; border: 2px solid #ddd; visibility: hidden;
     }
-    .ready { 
-      background: white !important; color: #333 !important; 
-      cursor: pointer !important; opacity: 1 !important; 
-      border-color: var(--primary) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    #btn-cast img { width: 30px; margin-right: 10px; filter: grayscale(1); }
-    .ready img { filter: grayscale(0) !important; }
-
-    /* Estilos Interfaz */
-    #selector-sede { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
-    .container { display: flex; height: 100vh; visibility: hidden; }
-    .main-panel { flex: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-right: 15px solid var(--primary); text-align: center; }
-    .turno-actual { font-size: 15rem; font-weight: bold; color: var(--primary); line-height: 1; }
+    .activo { visibility: visible !important; border-color: var(--primary) !important; }
+    #btn-cast img { width: 25px; margin-right: 10px; }
   </style>
 </head>
 <body>
 
-  <div id="btn-cast" onclick="lanzarCast()">
+  <div id="btn-cast" onclick="lanzarMenu()">
     <img src="https://www.gstatic.com/images/icons/material/system/2x/cast_black_24dp.png">
-    <span id="cast-status">CARGANDO SDK...</span>
+    <span>CONECTAR A TV</span>
   </div>
 
-  <div id="selector-sede">
-    <img src="https://www.comfamiliar.com/wp-content/uploads/2021/05/logo-comfamiliar-risaralda.png" style="width: 250px; margin-bottom: 20px; filter: brightness(0) invert(1);">
-    <h1>SISTEMA DE TURNOS</h1>
-    <select id="lista-sedes" style="padding:15px; font-size:1.5rem; border-radius:10px; margin-bottom:20px;">
+  <div id="selector-sede" style="text-align:center; margin-top:100px;">
+    <h1>SELECCIONAR SEDE</h1>
+    <select id="lista-sedes" style="padding:10px; font-size:1.2rem;">
       <option value="Galicia">Sede Galicia</option>
       <option value="Circunvalar">Sede Circunvalar</option>
-      <option value="Calle20">Sede Calle 20</option>
-      <option value="Cuba">Sede Cuba</option>
     </select>
-    <button onclick="confirmarSede()" style="padding:15px 50px; font-size:1.3rem; background:var(--accent); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">INICIAR</button>
+    <button onclick="confirmarSede()" style="padding:10px 20px; background:var(--accent); color:white; border:none; cursor:pointer;">INICIAR</button>
   </div>
 
-  <div id="app-container" class="container">
-    <div class="main-panel">
-      <div id="num-turno" class="turno-actual">--</div>
-      <div id="nombre-persona" style="font-size: 4rem; font-weight: bold;">...</div>
-      <div id="ventanilla-display" style="background:var(--accent); color:white; padding:10px 50px; border-radius:50px; font-size:3.5rem; font-weight:bold; display:none; margin-top:20px;">
-        VENTANILLA <span id="num-ventanilla">-</span>
-      </div>
-    </div>
-    <div class="side-panel" style="flex:1; background:var(--primary); color:white; padding:30px;">
-      <h2 style="border-bottom:2px solid white;">SIGUIENTES</h2>
-      <div id="lista-espera"></div>
-    </div>
-  </div>
-  
-<script>
-  // ESTO DEBE SALIR EN LA CONSOLA APENAS CARGUES LA PÁGINA
-  console.log("[Turnero] Script iniciado. Verificando archivos locales...");
-</script>
-
-<script src="cast_framework.js"></script>
-
-<script>
-    var API_URL = "https://script.google.com/macros/s/AKfycbylBmaxzo0_ncpfPwikdBouojXPVLx2ZxD7YBuoYmgpFh8IqNDGzkwjy_33wu0UahmMOg/exec";
+  <script>
     var APP_ID = "B01CDD80";
     var NAMESPACE = "urn:x-cast:com.comfamiliar.turnero";
-    var castListo = false;
+    var sedeActual = "";
 
-    // 1. EL MONITOR DE ESTADO (Aumentamos la frecuencia de log)
-    var monitorSDK = setInterval(function() {
-      var check = {
-        archivo_local: !!(window.cast && window.cast.framework),
-        browser_api: !!(window.chrome && window.chrome.cast),
-        hardware_listo: !!(window.chrome && window.chrome.cast && window.chrome.cast.isAvailable)
-      };
-
-      console.log("[Estado SDK]", check);
-
-      if (check.archivo_local && check.browser_api) {
-        console.log("¡Ecosistema detectado! Intentando inicializar...");
-        inicializarCastSafe();
-        clearInterval(monitorSDK);
+    // 3. MONITOR DE CARGA SEGURO
+    var interval = setInterval(function() {
+      if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
+        console.log("[Turnero] Hardware detectado. Inicializando...");
+        inicializarCast();
+        clearInterval(interval);
       }
-    }, 2000);
+    }, 1000);
 
-    function inicializarCastSafe() {
-      try {
-        var context = cast.framework.CastContext.getInstance();
-        context.setOptions({
-          receiverApplicationId: APP_ID,
-          autoJoinPolicy: 'origin_scoped' 
-        });
-
-        // Cambiamos el botón
-        var btn = document.getElementById('btn-cast');
-        btn.style.background = "white";
-        btn.style.color = "#333";
-        btn.style.cursor = "pointer";
-        btn.style.opacity = "1";
-        document.getElementById('cast-status').innerText = "CONECTAR A TV";
-        castListo = true;
-        console.log("SISTEMA LISTO. Ya puedes presionar el botón.");
-      } catch (e) {
-        console.error("Fallo crítico en inicialización:", e.message);
-      }
+    function inicializarCast() {
+      // Usamos el framework nativo si ya fue registrado por el navegador
+      cast.framework.CastContext.getInstance().setOptions({
+        receiverApplicationId: APP_ID,
+        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+      });
+      
+      document.getElementById('btn-cast').classList.add('activo');
+      console.log("[Turnero] Botón activado.");
     }
 
-    function lanzarCast() {
-      if (!castListo) {
-        alert("El SDK aún no responde. Prueba refrescando con Ctrl+F5.");
-        return;
-      }
+    function lanzarMenu() {
       cast.framework.CastContext.getInstance().requestSession().then(
         function() {
           var session = cast.framework.CastContext.getInstance().getCurrentSession();
           if (session) session.sendMessage(NAMESPACE, { sede: sedeActual });
         },
-        function(err) { console.log("Conexión fallida: " + err); }
+        function(err) { console.log("Error de conexión: " + err); }
       );
     }
-</script>
+
+    function confirmarSede() {
+      sedeActual = document.getElementById('lista-sedes').value;
+      document.getElementById('selector-sede').style.display = 'none';
+      // Aquí iría tu lógica de cargarTurnos()...
+    }
+  </script>
 </body>
 </html>
