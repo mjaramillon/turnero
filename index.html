@@ -1,27 +1,40 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR GitHub Test</title>
-    <!-- Cargamos versiones estables de las librerías -->
-    <script src="https://aframe.io"></script>
-    <script src="https://raw.githack.com"></script>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AR.js Demo</title>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/dev/aframe/build/aframe-ar.js"></script>
+    <script>
+      AFRAME.registerComponent("3sc-model", {
+        tick: function (time, deltatime) {
+          time = time / 1000 // Convert from ms to s
+          const SECONDS_PER_ROTATION = 5;
+
+          let xRotation = ((time / SECONDS_PER_ROTATION) * 360) % 360
+          let yRotation = ((time / SECONDS_PER_ROTATION) + 0.33 * 360) % 360
+          let zRotation = ((time / SECONDS_PER_ROTATION) + 0.66 * 360) % 360
+          
+          const element = this.el;
+          element.attributes.rotation.value = `${xRotation} ${yRotation} ${zRotation}`
+        }
+      })
+    </script>
   </head>
-  <body style="margin: 0px; overflow: hidden;">
-    
-    <!-- La escena debe tener sourceType: webcam explícito -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
-      
-      <!-- Marcador HIRO -->
-      <a-marker preset="hiro">
-        <!-- Cubo animado para confirmar que el renderizado funciona -->
-        <a-box position="0 0.5 0" material="color: #4CC3D9; opacity: 0.7;"
-               animation="property: rotation; to: 0 360 0; loop: true; dur: 3000"></a-box>
-      </a-marker>
-
-      <!-- La cámara es obligatoria -->
-      
-    </a-scene>
-
+  <body>
+      <a-scene embedded arjs>
+        <a-marker preset="hiro" smooth>
+            <a-entity
+            position="0 0 0"
+            rotation="90 45 45"
+            scale="0.5 0.5 0.5"
+            gltf-model="/assets/3sc.gltf"
+            3sc-model
+            ></a-entity>
+        </a-marker>
+        <a-entity camera></a-entity>
+      </a-scene>
   </body>
 </html>
