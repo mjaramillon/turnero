@@ -1,80 +1,50 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mi DashCast Personal</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f4f9; padding: 50px; }
-        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block; }
-        #cast-button { display: inline-block; width: 40px; height: 40px; margin-bottom: 20px; cursor: pointer; }
-        input { padding: 12px; width: 320px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button { padding: 12px 25px; background-color: #4285f4; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-left: 10px; }
-        button:hover { background-color: #357ae8; }
-        .status { margin-top: 15px; color: #666; font-size: 14px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebAR Test - GitHub Pages</title>
+    <!-- Librerías necesarias: A-Frame y AR.js -->
+    <script src="https://aframe.io"></script>
+    <script src="https://raw.githack.com"></script>
 </head>
-<body>
+<body style="margin: 0; overflow: hidden;">
 
-    <div class="container">
-        <h1>DashCast Clone</h1>
-        <p>Haz clic en el icono para conectar:</p>
+    <!-- Escena de Realidad Aumentada -->
+    <!-- 'embedded' y 'sourceType: webcam' son claves para que use la cámara del móvil -->
+    <a-scene 
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        vr-mode-ui="enabled: false">
+
+        <!-- Marcador HIRO: Es el estándar para pruebas rápidas -->
+        <a-marker preset="hiro">
+            <!-- Un cubo que gira sobre el marcador -->
+            <a-box 
+                position="0 0.5 0" 
+                material="color: #4CC3D9; opacity: 0.8;" 
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 4000">
+            </a-box>
+            
+            <!-- Texto flotante -->
+            <a-text 
+                value="¡WebAR Funciona!" 
+                position="-1 1.2 0" 
+                color="#EF2D5E" 
+                width="4" 
+                align="center">
+            </a-text>
+        </a-marker>
+
+        <!-- Entidad de cámara necesaria para renderizar la vista -->
         
-        <google-cast-launcher id="cast-button"></google-cast-launcher>
-        
-        <br>
-        <input type="url" id="urlInput" placeholder="https://www.wikipedia.org" value="https://www.wikipedia.org">
-        <button id="sendBtn">Transmitir</button>
-        
-        <div id="status" class="status">Esperando al SDK de Google Cast...</div>
+
+    </a-scene>
+
+    <!-- Instrucciones visuales opcionales en pantalla -->
+    <div style="position: fixed; bottom: 10px; width: 100%; text-align: center; z-index: 1; color: white; font-family: sans-serif; background: rgba(0,0,0,0.5);">
+        Apunta al marcador HIRO para ver el contenido
     </div>
 
-    <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-
-    <script>
-        // Nombre del canal de comunicación (Debe coincidir con el del Receiver)
-        const NAMESPACE = 'urn:x-cast:com.pierreguillou.dashcast'; 
-
-        window.__onGCastApiAvailable = function(isAvailable) {
-            if (isAvailable) {
-                initializeCastApi();
-            } else {
-                document.getElementById('status').innerText = "Cast no disponible en este navegador.";
-            }
-        };
-
-        function initializeCastApi() {
-            const context = cast.framework.CastContext.getInstance();
-            context.setOptions({
-                receiverApplicationId: 'B01CDD80',
-                autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
-            });
-
-            context.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, (event) => {
-                document.getElementById('status').innerText = "Estado: " + event.sessionState;
-            });
-            
-            document.getElementById('status').innerText = "SDK cargado. Haz clic en el icono de arriba.";
-        }
-
-        document.getElementById('sendBtn').addEventListener('click', () => {
-            const castSession = cast.framework.CastContext.getInstance().getCurrentSession();
-            const urlToDisplay = document.getElementById('urlInput').value;
-
-            if (castSession) {
-                // Enviamos un mensaje personalizado con la URL, no un archivo multimedia
-                const message = {
-                    url: urlToDisplay,
-                    force: true
-                };
-
-                castSession.sendMessage(NAMESPACE, message).then(
-                    () => { alert('URL enviada!'); },
-                    (error) => { console.error('Error al enviar mensaje', error); }
-                );
-            } else {
-                alert('¡Primero debes conectar el Chromecast con el botón de Cast!');
-            }
-        });
-    </script>
 </body>
 </html>
