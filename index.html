@@ -1,50 +1,27 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
+<html>
+  <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebAR Test - GitHub Pages</title>
-    <!-- Librerías necesarias: A-Frame y AR.js -->
+    <title>WebAR GitHub Test</title>
+    <!-- Cargamos versiones estables de las librerías -->
     <script src="https://aframe.io"></script>
     <script src="https://raw.githack.com"></script>
-</head>
-<body style="margin: 0; overflow: hidden;">
+  </head>
+  <body style="margin: 0px; overflow: hidden;">
+    
+    <!-- La escena debe tener sourceType: webcam explícito -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
+      
+      <!-- Marcador HIRO -->
+      <a-marker preset="hiro">
+        <!-- Cubo animado para confirmar que el renderizado funciona -->
+        <a-box position="0 0.5 0" material="color: #4CC3D9; opacity: 0.7;"
+               animation="property: rotation; to: 0 360 0; loop: true; dur: 3000"></a-box>
+      </a-marker>
 
-    <!-- Escena de Realidad Aumentada -->
-    <!-- 'embedded' y 'sourceType: webcam' son claves para que use la cámara del móvil -->
-    <a-scene 
-        embedded 
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-        vr-mode-ui="enabled: false">
-
-        <!-- Marcador HIRO: Es el estándar para pruebas rápidas -->
-        <a-marker preset="hiro">
-            <!-- Un cubo que gira sobre el marcador -->
-            <a-box 
-                position="0 0.5 0" 
-                material="color: #4CC3D9; opacity: 0.8;" 
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 4000">
-            </a-box>
-            
-            <!-- Texto flotante -->
-            <a-text 
-                value="¡WebAR Funciona!" 
-                position="-1 1.2 0" 
-                color="#EF2D5E" 
-                width="4" 
-                align="center">
-            </a-text>
-        </a-marker>
-
-        <!-- Entidad de cámara necesaria para renderizar la vista -->
-        
-
+      <!-- La cámara es obligatoria -->
+      
     </a-scene>
 
-    <!-- Instrucciones visuales opcionales en pantalla -->
-    <div style="position: fixed; bottom: 10px; width: 100%; text-align: center; z-index: 1; color: white; font-family: sans-serif; background: rgba(0,0,0,0.5);">
-        Apunta al marcador HIRO para ver el contenido
-    </div>
-
-</body>
+  </body>
 </html>
